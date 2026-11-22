@@ -4,7 +4,7 @@ Endless music in the genre you pick, made with a local music model. This fork ad
 
 **Windows:** See [Windows setup](#windows) for build and server instructions. The original Omarchy Linux integration remains available.
 
-![Flowtunes playing a lo-fi tune, its shape drawn in dots over an aurora](docs/screenshot.png)
+![Flowtunes on Windows playing a Whisper Lo-fi track](docs/windows.png)
 
 Pick a genre and the music never stops. The model makes one tune after another, each a little different from the last, and always has the next two ready behind the one playing, so a skip never waits. Lo-fi, Whisper Lo-fi, Ambient, Synthwave, Deep House, Techno, Drum & Bass, Jazz, Classical, Downtempo, Post-Rock, Acoustic and Cinematic are there to flow to. Turn the lyrics on and the tunes are sung, with words the model writes in your language; leave them off for music alone.
 

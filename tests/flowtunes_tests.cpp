@@ -297,8 +297,8 @@ private slots:
 
     void everyGenreAsksForItsOwnSoundWithoutAVoice() {
         const QStringList ids = Genres::ids();
-        QCOMPARE(ids.size(), 12);
-        QCOMPARE(QSet<QString>(ids.begin(), ids.end()).size(), 12);
+        QVERIFY(ids.contains("whisperlofi"));
+        QCOMPARE(QSet<QString>(ids.begin(), ids.end()).size(), ids.size());
         QRandomGenerator random(7);
         for (const Genre &genre : Genres::all()) {
             QSet<QString> captions;
@@ -1128,9 +1128,9 @@ private slots:
         QTest::keyClick(window, Qt::Key_Left);
         QTest::keyClick(window, Qt::Key_Up);
         QTest::keyClick(window, Qt::Key_Left);
-        QCOMPARE(window->property("chosen").toInt(), 11);
-        QTest::keyClick(window, Qt::Key_Right);
-        QTest::keyClick(window, Qt::Key_Right);
+        QCOMPARE(window->property("chosen").toInt(), backend.flow()->genres().size() - 1);
+        while (window->property("chosen").toInt() != backend.flow()->genres().indexOf("ambient"))
+            QTest::keyClick(window, Qt::Key_Right);
         QTest::keyClick(window, Qt::Key_Return);
         QCOMPARE(backend.flow()->genre(), QString("ambient"));
         QVERIFY(playing->isVisible());
