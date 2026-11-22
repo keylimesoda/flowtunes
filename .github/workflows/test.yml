@@ -3,7 +3,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, master, whisper-ci]
 
 permissions:
   contents: read
@@ -46,3 +46,4 @@ jobs:
 
       - name: Test
         run: su tester -c 'LANG=en_US.UTF-8 dbus-run-session -- bin/test'
+
