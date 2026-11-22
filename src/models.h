@@ -15,6 +15,8 @@ class Models : public QObject {
     Q_OBJECT
     // noEngine, none, installable, installing, installed, blocked, starting, ready
     Q_PROPERTY(QString state READ state NOTIFY changed)
+    Q_PROPERTY(bool externalService READ externalService CONSTANT)
+    Q_PROPERTY(QString serverUrl READ serverUrl WRITE setServerUrl NOTIFY changed)
     Q_PROPERTY(QString name READ name NOTIFY changed)
     // Why no music model runs here, or why its setup failed.
     Q_PROPERTY(QString reason READ reason NOTIFY changed)
@@ -53,6 +55,10 @@ public:
     // The music model to use or offer, from the engine's two files: one
     // running, else one on its way, else one set up, else one to set up.
     static Discovery discover(const QJsonObject &status, const QJsonArray &list, bool engine);
+
+    bool externalService() const;
+    QString serverUrl() const;
+    Q_INVOKABLE bool setServerUrl(const QString &url);
 
     QString state() const { return m_found.state; }
     QString name() const { return m_found.name; }

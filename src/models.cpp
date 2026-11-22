@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QSettings>
 #include <QUrl>
 #include <algorithm>
 
@@ -25,6 +26,12 @@ Models::Models(const QString &stateDirectory, const QString &keyPath, const QStr
       m_directory(!stateDirectory.isEmpty() ? stateDirectory : QDir::homePath() + "/.local/state/omarchy/agent-local"),
       m_keyPath(!keyPath.isEmpty() ? keyPath : QDir::homePath() + "/.config/omarchy/agent-local/key"),
       m_command(!command.isEmpty() ? command : QStandardPaths::findExecutable("omarchy-agent-local")) {
+#ifdef Q_OS_WIN
+    m_found.state = "ready";
+    m_found.name = "ACE-Step";
+    m_found.endpoint = serverUrl();
+    return;
+#endif
     // The engine replaces its files whole, which drops a file watch, so the
     // watch is armed again after every change.
     m_debounce.setSingleShot(true);
@@ -69,6 +76,30 @@ Models::Models(const QString &stateDirectory, const QString &keyPath, const QStr
         refresh.setStandardErrorFile(QProcess::nullDevice());
         refresh.startDetached();
     }
+}
+
+bool Models::externalService() const {
+#ifdef Q_OS_WIN
+    return true;
+#else
+    return false;
+#endif
+}
+
+QString Models::serverUrl() const {
+    return QSettings().value("aceStepUrl", "http://127.0.0.1:8001").toString();
+}
+
+bool Models::setServerUrl(const QString &value) {
+    QUrl url(value.trimmed());
+    if (!url.isValid() || (url.scheme() != "http" && url.scheme() != "https") || url.host().isEmpty()
+        || !url.userInfo().isEmpty() || url.hasQuery() || url.hasFragment())
+        return false;
+    const QString normalized = url.toString(QUrl::StripTrailingSlash);
+    QSettings().setValue("aceStepUrl", normalized);
+    m_found.endpoint = normalized;
+    emit changed();
+    return true;
 }
 
 Models::Discovery Models::discover(const QJsonObject &status, const QJsonArray &list, bool engine) {
@@ -163,12 +194,16 @@ QString Models::origin() const {
 }
 
 QByteArray Models::key() const {
+#ifdef Q_OS_WIN
+    return {};
+#else
     const QString host = m_found.id.contains('/') ? m_found.id.section('/', 0, 0) : QString();
     static const QRegularExpression name("^[a-z0-9-]+$");
     if (!host.isEmpty() && !name.match(host).hasMatch())
         return {};
     QFile file(host.isEmpty() ? m_keyPath : QFileInfo(m_keyPath).absolutePath() + "/remotes/" + host + ".key");
     return file.open(QIODevice::ReadOnly) ? file.readAll().trimmed() : QByteArray();
+#endif
 }
 
 void Models::start() {

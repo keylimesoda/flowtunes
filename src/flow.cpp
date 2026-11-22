@@ -289,7 +289,8 @@ void Flow::playbackFailed(const QString &why) {
 
 QNetworkReply *Flow::send(const QString &method, const QString &path, const QJsonObject &body) {
     QNetworkRequest request(QUrl(m_models->origin() + path));
-    request.setRawHeader("Authorization", "Bearer " + m_models->key());
+    if (!m_models->key().isEmpty())
+        request.setRawHeader("Authorization", "Bearer " + m_models->key());
     // A server that has stopped answering fails the tune rather than hanging the flow.
     request.setTransferTimeout(30000);
     if (method == "GET")
@@ -338,6 +339,119 @@ void Flow::pump(bool again) {
     // models in its way, which is theirs to decide.
 }
 
+#ifdef Q_OS_WIN
+void Flow::compose() {
+    m_composing = true;
+    m_filling = true;
+    emit changed();
+    const bool sung = m_lyrics;
+    const QString caption = Genres::caption(m_genre, *QRandomGenerator::global(), sung);
+    QJsonObject body{{"audio_duration", trackSeconds}, {"audio_format", "mp3"},
+                     {"batch_size", 1}, {"thinking", true},
+                     {"vocal_language", m_language.isEmpty() ? QString("en") : m_language.section('-', 0, 0)}};
+    if (sung) {
+        body.insert("sample_mode", true);
+        body.insert("sample_query", caption);
+    } else {
+        body.insert("prompt", caption);
+        body.insert("lyrics", "[Instrumental]");
+    }
+    submit("/release_task", body, [this, sung](const QByteArray &result) {
+        const QJsonObject song = QJsonDocument::fromJson(result).object();
+        const QJsonObject meta = song.value("metas").toObject();
+        Track track;
+        track.made = true;
+        track.bpm = meta.value("bpm").toInt();
+        track.key = meta.value("keyscale").toString();
+        track.title = sung ? hookOf(song.value("lyrics").toString()) : QString();
+        if (track.title.isEmpty())
+            track.title = Genres::title(m_genre, *QRandomGenerator::global());
+        const QUrl server(m_models->origin());
+        const QUrl audio = server.resolved(QUrl(song.value("file").toString()));
+        if (!audio.isValid() || audio.host() != server.host() || audio.port() != server.port()
+            || audio.scheme() != server.scheme() || audio.path() != "/v1/audio") {
+            fail(tr("The music server returned an invalid audio URL"));
+            return;
+        }
+        QNetworkRequest request(audio);
+        request.setTransferTimeout(30000);
+        QNetworkReply *reply = m_network.get(request);
+        connect(reply, &QNetworkReply::finished, this, [this, reply, track, sung, run = m_run]() mutable {
+            reply->deleteLater();
+            if (run != m_run) return;
+            if (reply->error() != QNetworkReply::NoError) {
+                fail(tr("The music model stopped answering: %1").arg(reply->errorString()));
+                return;
+            }
+            const QByteArray sound = reply->readAll();
+            if (sound.isEmpty()) { fail(tr("The tune couldn't be made")); return; }
+            const QByteArray named = titled(sound, track.title);
+            const QString tunes = folder(m_genre);
+            QString name = fileName(QDateTime::currentDateTime(), track.bpm, track.key, sung);
+            for (int copy = 2; QFile::exists(tunes + "/" + name); ++copy)
+                name = name.section('.', 0, -2).section('_', 0, 0) + QString("_%1.mp3").arg(copy);
+            track.path = tunes + "/" + name;
+            QSaveFile file(track.path);
+            if (!QDir().mkpath(tunes) || !file.open(QIODevice::WriteOnly) || file.write(named) != named.size() || !file.commit()) {
+                fail(tr("Couldn't save the tune in %1").arg(tunes)); return;
+            }
+            shape(track);
+        });
+    });
+}
+
+void Flow::submit(const QString &path, const QJsonObject &body, Done done) {
+    m_done = std::move(done);
+    QNetworkReply *reply = send("POST", path, body);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, run = m_run] {
+        reply->deleteLater();
+        if (run != m_run) return;
+        if (reply->error() != QNetworkReply::NoError) {
+            fail(tr("The music model didn't answer: %1").arg(reply->errorString())); return;
+        }
+        const QJsonObject envelope = parse(reply->readAll());
+        const QString id = envelope.value("data").toObject().value("task_id").toString();
+        if (id.isEmpty() || !envelope.value("error").isNull()) {
+            fail(tr("The tune couldn't be made")); return;
+        }
+        m_job = id;
+        m_poll.start();
+    });
+}
+
+void Flow::poll() {
+    if (m_job.isEmpty()) return;
+    QNetworkReply *reply = send("POST", "/query_result", {{"task_id_list", QJsonArray{m_job}}});
+    connect(reply, &QNetworkReply::finished, this, [this, reply, run = m_run] {
+        reply->deleteLater();
+        if (run != m_run) return;
+        if (reply->error() != QNetworkReply::NoError) {
+            fail(tr("The music model stopped answering: %1").arg(reply->errorString())); return;
+        }
+        const QJsonObject envelope = parse(reply->readAll());
+        const QJsonArray rows = envelope.value("data").toArray();
+        if (!envelope.value("error").isNull() || rows.isEmpty()) {
+            fail(tr("The tune couldn't be made")); return;
+        }
+        const QJsonObject row = rows.first().toObject();
+        if (row.value("task_id").toString() != m_job || !row.value("status").isDouble()) {
+            fail(tr("The tune couldn't be made")); return;
+        }
+        const int status = row.value("status").toInt(-1);
+        if (status == 0) { m_poll.start(); return; }
+        if (status != 1) { fail(tr("The tune couldn't be made")); return; }
+        const QJsonValue value = row.value("result");
+        const QJsonArray results = value.isArray() ? value.toArray() : QJsonDocument::fromJson(value.toString().toUtf8()).array();
+        if (results.isEmpty() || !results.first().isObject()) { fail(tr("The tune couldn't be made")); return; }
+        m_job.clear();
+        const Done done = std::move(m_done);
+        done(QJsonDocument(results.first().toObject()).toJson(QJsonDocument::Compact));
+    });
+}
+
+// ACE-Step's public API has no cancellation endpoint. Ignore stale results.
+void Flow::cancelJob(const QString &id) { Q_UNUSED(id); }
+#else
 void Flow::compose() {
     m_composing = true;
     m_filling = true;
@@ -469,6 +583,8 @@ void Flow::cancelJob(const QString &id) {
     new Stay(reply);
     connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
 }
+
+#endif
 
 QVariantList Flow::shapeOf(const QByteArray &samples) {
     // Each bar is how loud its share of the tune is on the whole, against

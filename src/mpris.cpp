@@ -1,14 +1,17 @@
 #include "mpris.h"
 
 #include <QCoreApplication>
+#ifndef Q_OS_WIN
 #include <QDBusAbstractAdaptor>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
+#endif
 
 #include "flow.h"
 #include "genres.h"
 
+#ifndef Q_OS_WIN
 namespace {
 
 const QString path = "/org/mpris/MediaPlayer2";
@@ -89,10 +92,13 @@ private:
 };
 
 } // namespace
+#endif
 
 Mpris::Mpris(Flow *flow, QObject *parent) : QObject(parent), m_flow(flow) {
+#ifndef Q_OS_WIN
     new Root(this);
     new Player(this);
+#endif
     connect(m_flow, &Flow::changed, this, [this] {
         if (m_flow->track() != m_tune) {
             m_tune = m_flow->track();
@@ -104,6 +110,10 @@ Mpris::Mpris(Flow *flow, QObject *parent) : QObject(parent), m_flow(flow) {
 }
 
 bool Mpris::publish(const QString &name) {
+#ifdef Q_OS_WIN
+    Q_UNUSED(name);
+    return false;
+#else
     QDBusConnection bus = QDBusConnection::sessionBus();
     const QString service = "org.mpris.MediaPlayer2." + name;
     m_published = bus.registerObject(path, this, QDBusConnection::ExportAdaptors)
@@ -112,6 +122,7 @@ bool Mpris::publish(const QString &name) {
     m_told = {};
     announce();
     return m_published;
+#endif
 }
 
 void Mpris::setPaused(bool paused) {
@@ -143,6 +154,9 @@ QString Mpris::tuneId() const {
 }
 
 QVariantMap Mpris::metadata() const {
+#ifdef Q_OS_WIN
+    return {};
+#else
     if (!hasTune())
         return {{"mpris:trackid", QVariant::fromValue(QDBusObjectPath(tuneId()))}};
     QVariantMap tune{
@@ -158,6 +172,7 @@ QVariantMap Mpris::metadata() const {
     if (m_duration > 0)
         tune["mpris:length"] = m_duration * 1000;
     return tune;
+#endif
 }
 
 void Mpris::next() {
@@ -186,6 +201,7 @@ void Mpris::stop() {
 }
 
 void Mpris::announce() {
+#ifndef Q_OS_WIN
     if (!m_published)
         return;
     // Position isn't among them: it's asked for when it's wanted.
@@ -202,6 +218,9 @@ void Mpris::announce() {
     QDBusMessage signal = QDBusMessage::createSignal(path, "org.freedesktop.DBus.Properties", "PropertiesChanged");
     signal << "org.mpris.MediaPlayer2.Player" << news << QStringList();
     QDBusConnection::sessionBus().send(signal);
+#endif
 }
 
+#ifndef Q_OS_WIN
 #include "mpris.moc"
+#endif

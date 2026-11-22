@@ -37,7 +37,7 @@ Item {
     // Seconds the wave has moved for. It stands still for anyone who has
     // asked their desktop for less motion.
     property real time: 0
-    readonly property bool calm: Application.styleHints.accessibility.motionPreference === Qt.ReducedMotion
+    readonly property bool calm: Application.styleHints.accessibility && Application.styleHints.accessibility.motionPreference === Qt.ReducedMotion
     NumberAnimation on time {
         running: root.live && root.visible && !root.calm
         from: 0
@@ -57,10 +57,10 @@ Item {
         const turn = 2 * Math.PI
         // Each column's own number, 0 to 1, the same every time.
         const own = Math.abs(Math.sin(index * 12.9898) * 43758.5453) % 1
-        const long = Math.sin(turn * (x * 1.6 - time * 0.42))
-        const short = Math.sin(turn * (x * 4.7 - time * 1.05))
+        const longWave = Math.sin(turn * (x * 1.6 - time * 0.42))
+        const shortWave = Math.sin(turn * (x * 4.7 - time * 1.05))
         const twitch = Math.sin(time * (5 + 4 * own) + own * turn)
-        const meter = 0.5 + 0.5 * (0.5 * long + 0.3 * short + 0.2 * twitch)
+        const meter = 0.5 + 0.5 * (0.5 * longWave + 0.3 * shortWave + 0.2 * twitch)
         const beat = Math.exp(-5 * ((time * 1.7) % 1))
         const ends = Math.min(1, x * 9, (1 - x) * 7)
         const passages = 0.5 + 0.5 * Math.sin(turn * (x * 2.3 - time * 0.05))

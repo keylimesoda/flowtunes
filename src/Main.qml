@@ -27,6 +27,7 @@ ApplicationWindow {
     // The genres by what they're called. Flow knows what each sounds like.
     readonly property var genreNames: ({
         "lofi": qsTr("Lo-fi"),
+        "whisperlofi": qsTr("Whisper Lo-fi"),
         "ambient": qsTr("Ambient"),
         "synthwave": qsTr("Synthwave"),
         "deephouse": qsTr("Deep House"),
@@ -225,6 +226,42 @@ ApplicationWindow {
         ToolTip.visible: hovered
         ToolTip.text: text + "  " + key
         ToolTip.delay: 300
+    }
+
+    Dialog {
+        id: serverDialog
+        title: qsTr("ACE-Step server")
+        anchors.centerIn: parent
+        modal: true
+        standardButtons: Dialog.Save | Dialog.Cancel
+        onOpened: { serverAddress.text = win.models.serverUrl; serverError.visible = false }
+        onAccepted: {
+            if (!win.models.setServerUrl(serverAddress.text)) {
+                const invalid = serverAddress.text
+                Qt.callLater(function() {
+                    serverDialog.open()
+                    serverAddress.text = invalid
+                    serverError.visible = true
+                })
+            } else if (win.flow.genre !== "") {
+                win.flow.stop()
+                win.picking = true
+            }
+        }
+        contentItem: ColumnLayout {
+            Label { text: qsTr("Server URL"); Layout.fillWidth: true }
+            TextField { id: serverAddress; Layout.preferredWidth: 400; selectByMouse: true }
+            Label { id: serverError; visible: false; color: theme.colors.red; text: qsTr("Enter a valid HTTP or HTTPS URL.") }
+        }
+    }
+    ToolButton {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 12
+        z: 10
+        visible: win.models.externalService
+        text: qsTr("Server")
+        onClicked: serverDialog.open()
     }
 
     // Right-to-left languages mirror the window; the Translator sets the

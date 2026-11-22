@@ -1,0 +1,19 @@
+name: Windows
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          modules: 'qtmultimedia qtshadertools'
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build, test and deploy
+        shell: pwsh
+        run: ./scripts/build-windows.ps1 -QtDir "$env:Qt6_DIR"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flowtunes-Windows
+          path: dist/Flowtunes

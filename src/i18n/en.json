@@ -20,6 +20,7 @@
   "Genres": "Genres",
   "Jazz": "Jazz",
   "Lo-fi": "Lo-fi",
+  "Whisper Lo-fi": "Whisper Lo-fi",
   "Lyrics": "Lyrics",
   "Move between the genres": "Move between the genres",
   "Next": "Next",
@@ -52,5 +53,10 @@
   "Try again": "Try again",
   "Turn the lyrics on or off": "Turn the lyrics on or off",
   "What do you want to flow to?": "What do you want to flow to?",
-  "omarchy-agent-local couldn't be run": "omarchy-agent-local couldn't be run"
+  "omarchy-agent-local couldn't be run": "omarchy-agent-local couldn't be run",
+  "ACE-Step server": "ACE-Step server",
+  "Server URL": "Server URL",
+  "Enter a valid HTTP or HTTPS URL.": "Enter a valid HTTP or HTTPS URL.",
+  "Server": "Server",
+  "The music server returned an invalid audio URL": "The music server returned an invalid audio URL"
 }
