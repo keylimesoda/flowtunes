@@ -40,9 +40,12 @@ Item {
     onPausedChanged: sync()
     Component.onCompleted: sync()
 
+    MediaDevices { id: devices }
+
     MediaPlayer {
         id: player
-        audioOutput: AudioOutput {}
+        // Follow changes to the system default while this tune is playing.
+        audioOutput: AudioOutput { device: devices.defaultAudioOutput }
         // Said once the player is done ending: a next tune handed to it while
         // it's still stopping the last one is stopped along with it.
         onMediaStatusChanged: if (mediaStatus === MediaPlayer.EndOfMedia) Qt.callLater(root.finish)

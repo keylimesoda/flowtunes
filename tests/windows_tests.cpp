@@ -12,6 +12,7 @@
 #include "theme.h"
 #include "translator.h"
 #include <QQmlApplicationEngine>
+#include <QQmlComponent>
 #include <QQmlContext>
 #include <QQuickStyle>
 
@@ -78,6 +79,12 @@ private slots:
         engine.rootContext()->setContextProperty("translator", &translator);
         engine.load(QUrl("qrc:/Main.qml"));
         QVERIFY(!engine.rootObjects().isEmpty());
+    }
+    void playerLoadsWithDefaultAudio() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/TunePlayer.qml"));
+        std::unique_ptr<QObject> player(component.create());
+        QVERIFY2(player != nullptr, qPrintable(component.errorString()));
     }
     void generationAndQueue() {
         QTemporaryDir music;
